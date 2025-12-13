@@ -11,6 +11,9 @@ class Referee:
                         "player3":[True,True,True,True],
                         "player4":[True,True,True,True]
                         }
+        self.trump=None
+        self.trump_suit=None
+        self.trump_was_played = False
                 
     def receive_card(self):
         card = input("card:")
@@ -19,9 +22,11 @@ class Referee:
     def round(self, first_player):
         for _ in range(10):
             if _==0:
-                trump=self.get_trump()
+                self.get_trump()
             for i in range(4):
                 card_number = self.receive_card()
+                if card_number == self.trump:
+                    self.trump_was_played = True
                 card_suit = CardMapper.get_card_suit(card_number)
                 this_player = i + first_player
                 if this_player > 4:
@@ -34,11 +39,20 @@ class Referee:
                     round_suit = card_suit
                     print(player, card_suit, round_suit, "\n")
                     round_suit_index = SUITS.index(round_suit)
-                else: 
+                elif 0<i<3: 
                     print(player, card_suit, round_suit, "\n")
                     if card_suit != round_suit:
                         print("Já não tenho\n")
                         self.players[player][round_suit_index]=False
+                else:
+                    print(player, card_suit, round_suit, "\n")
+                    if card_suit != round_suit:
+                        if round_suit == self.trump_suit:
+                            if self.trump_was_played == False:
+                                return False
+                        print("Já não tenho\n")
+                        self.players[player][round_suit_index]=False
+                    
         return True
     
     def game(self):
@@ -56,13 +70,13 @@ class Referee:
                         "player3":[True,True,True,True],
                         "player4":[True,True,True,True]
                         }
+        self.trump_was_played = False
+        self.trump=None
+        self.trump_suit=None
         
     def get_trump(self):
-        trump = self.receive_card()
-        return trump
-    
-    def still_has_trump():
-        pass    
+        self.trump = self.receive_card()
+        self.trump_suit = CardMapper.get_card_suit(self.trump)
 
 
 
