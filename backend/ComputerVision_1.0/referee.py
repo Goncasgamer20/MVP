@@ -1,43 +1,70 @@
 from card_mapper import CardMapper
+import random
+
+
+SUITS = ["♣", "♦", "♥", "♠"]
 
 class Referee:
     def __init__(self):
-        self.trump_card = None
-        self.cards_played = []
+        self.players = {"player1":[True,True,True,True],
+                        "player2":[True,True,True,True],
+                        "player3":[True,True,True,True],
+                        "player4":[True,True,True,True]
+                        }
+                
+    def receive_card(self):
+        card = input("card:")
+        return card
 
-    def get_lead_suit(self):
-        if not self.cards_played:
-            return None
-        return CardMapper.get_card_suit(self.cards_played[0])
-
-    def assure_card_can_be_played(self, card):
-        card_suit = CardMapper.get_card_suit(card)
-        lead_suit = self.get_lead_suit()
-        trump_suit = CardMapper.get_card_suit(self.trump_card)
-
-        if lead_suit is None or card_suit == lead_suit or card_suit == trump_suit:
-            self.cards_played.append(card)
-            return True
-
-        return False
-
-    def run(self):
-        self.trump_card = int(input("Enter the trump card: "))
-        print(f"Trump card set to: {self.trump_card}\n")
-
-        for i in range(4):
-            card = int(input(f"Enter card {i + 1}: "))
-            if self.assure_card_can_be_played(card):
-                print(f"Card {card} accepted.\n")
-            else:
-                print(f"Card {card} is invalid! Exiting.")
-                return False
-
-        print("All cards played successfully!")
+    def round(self, first_player):
+        for _ in range(10):
+            if _==0:
+                trump=self.get_trump()
+            for i in range(4):
+                card_number = self.receive_card()
+                card_suit = CardMapper.get_card_suit(card_number)
+                this_player = i + first_player
+                if this_player > 4:
+                    this_player = this_player%4
+                player = str("player"+str(this_player))
+                card_suit_index = SUITS.index(card_suit)
+                if self.players.get(player)[card_suit_index]== False:
+                    return False
+                if i == 0:
+                    round_suit = card_suit
+                    print(player, card_suit, round_suit, "\n")
+                    round_suit_index = SUITS.index(round_suit)
+                else: 
+                    print(player, card_suit, round_suit, "\n")
+                    if card_suit != round_suit:
+                        print("Já não tenho\n")
+                        self.players[player][round_suit_index]=False
         return True
+    
+    def game(self):
+        while True:
+            for i in range(4):
+                first_player = i+1
+                self.reset_players()
+                if self.round(first_player) == False:
+                    print("RENUNCIA")
+                    continue
+
+    def reset_players(self):
+        self.players = {"player1":[True,True,True,True],
+                        "player2":[True,True,True,True],
+                        "player3":[True,True,True,True],
+                        "player4":[True,True,True,True]
+                        }
+        
+    def get_trump(self):
+        trump = self.receive_card()
+        return trump
+    
+    def still_has_trump():
+        pass    
 
 
-if __name__ == "__main__":
-    referee = Referee()
-    result = referee.run()
-    print("Result:", result)
+
+r = Referee()
+r.game()
