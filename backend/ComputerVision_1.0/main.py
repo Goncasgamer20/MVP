@@ -5,6 +5,45 @@ from yolo import CardClassifier
 import cv2
 import os
 import numpy as np
+import requests
+
+def send_to_middleware(rank: str, suit: str, confidence: float, source="python_cv"):
+    """
+    Sends the detected card to the Middleware.
+    """
+    url = "http://127.0.0.1:8000/scan"
+    payload = {
+        "source": source,
+        "success": True,
+        "message": "card detected",
+        "detection": {
+            "rank": rank,
+            "suit": suit,
+            "confidence": confidence
+        }
+    }
+    try:
+        response = requests.post(url, json=payload, timeout=2)
+        print(f"[Middleware] Response: {response.json()}")
+    except requests.RequestException as e:
+        print(f"[Middleware] Error sending card: {e}")
+
+def parse_label(label: str):
+    """
+    Converts YOLO label like 'Kc' or '10h' to rank and suit.
+    """
+    if len(label) < 2:
+        return None, None
+    rank = label[:-1]
+    suit_char = label[-1].lower()
+    suit_map = {
+        "c": "Clubs",
+        "d": "Diamonds",
+        "h": "Hearts",
+        "s": "Spades"
+    }
+    suit = suit_map.get(suit_char, "Unknown")
+    return rank, suit
 
 
 def main():
@@ -51,6 +90,7 @@ def main():
 
     classifier = CardClassifier(model_path=model_path) if model_path else None
     last_labels = {}
+    sent_labels = set()
     black_img = np.zeros((300, 200))
 
     while True:
@@ -75,6 +115,14 @@ def main():
                 if prev_label != label_str:
                     print(f"[INFO] Card {i}: {label_str}")
                     last_labels[i] = label_str
+
+                    if class_label and class_label not in sent_labels:
+                        rank, suit = parse_label(class_label)
+                        if rank and suit:
+                            send_to_middleware(rank, suit, conf)
+                            sent_labels.add(class_label)
+                        else:
+                            print(f"[Middleware] Could not parse label: {class_label}")
 
         # Fechar janelas de cartas que desapareceram
         current_indices = set(range(len(flatten_cards)))
