@@ -19,6 +19,7 @@ class Referee:
         self.trump_suit=None
         self.trump_was_played = False
         self.round_vector = []
+        self.rounds_played = 0
         self.team1_points = 0
         self.team2_points = 0
         self.team1_victories = 0
@@ -28,7 +29,9 @@ class Referee:
         return {
             "trump_set": self.trump_set,
             "trump": CardMapper.get_card(self.trump) if self.trump else None,
+            "trump_suit": self.trump_suit,
             "queue_size": len(self.card_queue),
+            "rounds_played": self.rounds_played,
             "current_player": self.current_player,
             "team1_points": self.team1_points,
             "team2_points": self.team2_points,
@@ -51,6 +54,7 @@ class Referee:
         print(f"Trump set to {CardMapper.get_card(self.trump)}")
 
     def play_round(self):
+        self.rounds_played += 1
         if len(self.card_queue) < 4:
             return False
         for i in range(4):
@@ -73,7 +77,7 @@ class Referee:
                     self.team1_victories += 4
                 else:
                     self.team2_victories += 4
-                self.reset_round()
+                self.reset_players()
                 return False
 
             if i == 0:
@@ -97,15 +101,22 @@ class Referee:
                         "player3":[True,True,True,True],
                         "player4":[True,True,True,True]
                         }
+        self.round_vector = []
         self.trump_was_played = False
         self.trump=None
         self.trump_suit=None
+        self.trump_set=False
         self.team1_points = 0
         self.team2_points = 0
+        self.rounds_played = 0
+        self.current_player += 1
+        print("[DEBUG] PLAYERS RESET")
 
     def reset_round(self):
         self.round_vector = []
         self.trump_was_played = False
+        if self.rounds_played == 10:
+            self.get_game_winner()
         
     def get_trump(self):
         self.trump = self.receive_card()
@@ -153,3 +164,4 @@ class Referee:
             else:
                 self.team2_victories += 4
                 print("Team 2 wins the game and team 1 made no points (Team 2 +4 victories)!")
+        self.reset_players()
