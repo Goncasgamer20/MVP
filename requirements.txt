@@ -10,4 +10,3 @@ numpy
 opencv-python
 ultralytics
 pillow
-collections

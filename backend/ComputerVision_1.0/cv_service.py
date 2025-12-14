@@ -59,10 +59,10 @@ def parse_label(label: str):
     rank = label[:-1]
     suit_char = label[-1].lower()
     suit_map = {
-        "c": "Clubs",
-        "d": "Diamonds",
-        "h": "Hearts",
-        "s": "Spades"
+        "c": "♣",
+        "d": "♦",
+        "h": "♥",
+        "s": "♠"
     }
     suit = suit_map.get(suit_char, "Unknown")
     return rank, suit

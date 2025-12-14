@@ -15,9 +15,10 @@ app = FastAPI(title="CV Middleware", version="0.1")
 
 backend = BackendClient(base_url="http://localhost:8080")
 
-# CV Service URLs
+# Service URLs
 CV_SERVICE_URL = "http://localhost:8001"
 CV_SERVICE_WS_URL = "ws://localhost:8001"
+GAME_SERVICE_URL = "http://localhost:8080"
 
 # Active WebSocket connections
 active_connections: dict[str, WebSocket] = {}
@@ -108,11 +109,47 @@ async def websocket_camera(websocket: WebSocket, game_id: str):
         async def receive_from_cv():
             try:
                 async for message in cv_ws:
-                    # Forward CV detections back to mobile
+                    # Parse detection from CV
                     data = json.loads(message)
                     if data.get("success") and data.get("detection"):
-                        await websocket.send_json(data)
-                        print(f"[Middleware] Forwarded detection to mobile: {data['detection']}")
+                        detection = data["detection"]
+                        print(f"[Middleware] Received detection from CV: {detection}")
+                        
+                        # Send to Game Service (Referee)
+                        try:
+                            game_response = requests.post(
+                                f"{GAME_SERVICE_URL}/card",
+                                json={
+                                    "rank": detection["rank"],
+                                    "suit": detection["suit"],
+                                    "confidence": detection.get("confidence", 1.0)
+                                },
+                                timeout=2
+                            )
+                            if game_response.status_code == 200:
+                                game_result = game_response.json()
+                                print(f"[Middleware] ✓ Game Service response: {game_result}")
+                                
+                                # Forward both CV detection and game state to mobile
+                                combined_data = {
+                                    "success": True,
+                                    "detection": detection,
+                                    "game_state": game_result
+                                }
+                                await websocket.send_json(combined_data)
+                            else:
+                                print(f"[Middleware] ✗ Game Service HTTP {game_response.status_code}: {game_response.text}")
+                                # Still forward CV detection to mobile
+                                await websocket.send_json(data)
+                        except requests.exceptions.ConnectionError as e:
+                            print(f"[Middleware] ✗ Game Service not running at {GAME_SERVICE_URL}: {e}")
+                            # Still forward CV detection to mobile
+                            await websocket.send_json(data)
+                        except requests.RequestException as e:
+                            print(f"[Middleware] ✗ Error sending to Game Service: {e}")
+                            # Still forward CV detection to mobile
+                            await websocket.send_json(data)
+                        
             except Exception as e:
                 print(f"[Middleware] Error receiving from CV: {e}")
         
