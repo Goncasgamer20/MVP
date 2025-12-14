@@ -1,5 +1,0 @@
-requests
-typing
-dataclasses
-fastapi
-pydantic

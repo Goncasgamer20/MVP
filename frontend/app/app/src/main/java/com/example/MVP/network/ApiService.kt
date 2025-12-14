@@ -21,6 +21,9 @@ interface ApiService {
     suspend fun playCardVision(
         @Body imageBase64: String
     ): List<Card>
+    
+    @POST("game/start")
+    suspend fun startGame(@Body body: StartGameRequest): StartGameResponse
 
     //get de arbitragem
 }

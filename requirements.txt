@@ -1,0 +1,12 @@
+requests
+typing
+dataclasses
+fastapi
+pydantic
+uvicorn
+websockets
+python-multipart
+numpy
+opencv-python
+ultralytics
+pillow

@@ -31,3 +31,6 @@ data class GameState(
 
 data class CreateRoomRequest(val playerName: String)
 data class CreateRoomResponse(val success: Boolean, val playerId: String, val roomId: String)
+
+data class StartGameRequest(val playerName: String, val roomId: String?)
+data class StartGameResponse(val success: Boolean, val message: String, val gameId: String)

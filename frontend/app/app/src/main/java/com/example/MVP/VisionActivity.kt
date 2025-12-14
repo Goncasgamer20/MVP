@@ -26,7 +26,10 @@ class VisionActivity : AppCompatActivity() {
     private val executor = Executors.newSingleThreadExecutor()
     private lateinit var webSocket: WebSocket
 
-    private val wsUrl = "ws://TEU_BACKEND_IP:PORT/ws/stream"  // <- muda isto
+    private val wsUrl = "ws://192.168.176.47:8000/ws/camera/"  // IP do Mac na rede local
+    // For emulator use: "ws://10.0.2.2:8000/ws/camera/"
+
+    private var gameId: String = "default"
 
     // Views for the cards on the table
     private lateinit var cardNorth: ImageView
@@ -49,6 +52,11 @@ class VisionActivity : AppCompatActivity() {
 
         btnBack.setOnClickListener { finish() }
 
+        // Get game info from intent
+        val playerName = intent.getStringExtra("playerName") ?: "Player"
+        val roomId = intent.getStringExtra("roomId")
+        gameId = roomId ?: "default"
+
         // Initialize the card ImageViews
         cardNorth = findViewById(R.id.card_north)
         cardWest = findViewById(R.id.card_west)
@@ -61,7 +69,7 @@ class VisionActivity : AppCompatActivity() {
 
         if (allPermissionsGranted()) {
             startCamera()
-            // connectWebSocket() // Desativado para teste da câmara
+            connectWebSocket()
         } else {
             ActivityCompat.requestPermissions(
                 this,
@@ -115,14 +123,18 @@ class VisionActivity : AppCompatActivity() {
         bitmap.compress(Bitmap.CompressFormat.JPEG, 70, output)
         val base64 = Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP)
 
-        // Apenas para teste: confirma no Logcat que os frames estão a ser processados
-        Log.d("VisionActivity", "Frame processado. Tamanho do Base64: ${base64.length}")
-
-        /* Desativado para teste da câmara
+        // Send frame via WebSocket to middleware
         if (::webSocket.isInitialized) {
-            webSocket.send(base64) // <- envia frame
+            try {
+                webSocket.send(base64)
+                // Log less frequently to avoid spam
+                if (System.currentTimeMillis() % 1000 < 100) {
+                    Log.d("VisionActivity", "Frame sent via WebSocket")
+                }
+            } catch (e: Exception) {
+                Log.e("VisionActivity", "Error sending frame: ${e.message}")
+            }
         }
-        */
     }
 
     // ------- EXTENSÃO PARA CONVERTER IMAGEPROXY -------
@@ -206,16 +218,19 @@ class VisionActivity : AppCompatActivity() {
         val client = OkHttpClient()
 
         val request = Request.Builder()
-            .url(wsUrl)
+            .url(wsUrl + gameId)
             .build()
 
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(ws: WebSocket, response: Response) {
-                Log.d("WS", "WebSocket conectado")
+                Log.d("WS", "WebSocket connected to ${wsUrl + gameId}")
+                runOnUiThread {
+                    Toast.makeText(this@VisionActivity, "Vision AI Connected", Toast.LENGTH_SHORT).show()
+                }
             }
 
             override fun onMessage(ws: WebSocket, text: String) {
-                Log.d("WS", "Resposta: $text")
+                Log.d("WS", "Response: $text")
                 runOnUiThread {
                     if (text != lastWebSocketMessage) {
                         // When a new card arrives, cancel the timer and reset the board
@@ -224,27 +239,19 @@ class VisionActivity : AppCompatActivity() {
                     }
                     lastWebSocketMessage = text
 
-                    // Example of how you might use the new function:
-                    // val (player, card) = parseWebSocketMessage(text) // You need to implement parseWebSocketMessage
-                    // when (player) {
-                    //     "North" -> updateCardView(card, cardNorth)
-                    //     "South" -> updateCardView(card, cardSouth)
-                    //     "East" -> updateCardView(card, cardEast)
-                    //     "West" -> updateCardView(card, cardWest)
-                    //     "Trump" -> updateCardView(card, trumpCard)
-                    // }
-
-                    // If the trick is complete, start the timer
-                    // if (allPlayerCardsAreSet()) { // You need to implement allPlayerCardsAreSet
-                    //     startResetTimer()
-                    // }
-
-                    Toast.makeText(this@VisionActivity, text, Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@VisionActivity, "Card: $text", Toast.LENGTH_SHORT).show()
                 }
             }
 
             override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) {
-                Log.e("WS", "Erro WebSocket", t)
+                Log.e("WS", "WebSocket error", t)
+                runOnUiThread {
+                    Toast.makeText(this@VisionActivity, "Connection error: ${t.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+
+            override fun onClosed(ws: WebSocket, code: Int, reason: String) {
+                Log.d("WS", "WebSocket closed: $reason")
             }
         })
     }
@@ -258,7 +265,7 @@ class VisionActivity : AppCompatActivity() {
         if (requestCode == 10) {
             if (allPermissionsGranted()) {
                 startCamera()
-                // connectWebSocket() // Desativado para teste da câmara
+                connectWebSocket()
             } else {
                 Toast.makeText(this, "Permissions not granted by the user.", Toast.LENGTH_SHORT).show()
                 finish()
@@ -276,10 +283,10 @@ class VisionActivity : AppCompatActivity() {
         // Cancel timer to prevent memory leaks
         cancelResetTimer()
         executor.shutdown()
-        /* Desativado para teste da câmara
+
+        // Close WebSocket connection
         if (::webSocket.isInitialized) {
             webSocket.close(1000, "Activity Destroyed")
         }
-        */
     }
 }

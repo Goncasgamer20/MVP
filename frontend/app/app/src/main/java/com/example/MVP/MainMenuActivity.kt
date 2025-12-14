@@ -8,6 +8,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.example.MVP.models.CreateRoomRequest
+import com.example.MVP.models.StartGameRequest
 import com.example.MVP.network.RetrofitClient
 import com.example.MVP.models.JoinRoomRequest
 import kotlinx.coroutines.launch
@@ -69,10 +70,41 @@ class MainMenuActivity : AppCompatActivity() {
             val name = inputName.text.toString().ifBlank { "Player${(1000..9999).random()}" }
             val roomId = inputRoom.text.toString().ifBlank { null }
 
-            val intent = Intent(this@MainMenuActivity, VisionActivity::class.java)
-            intent.putExtra("playerName", name)
-            intent.putExtra("roomId", roomId)
-            startActivity(intent)
+            lifecycleScope.launch {
+                try {
+                    // Call middleware to start the game with CV
+                    val response = RetrofitClient.api.startGame(
+                        StartGameRequest(playerName = name, roomId = roomId)
+                    )
+                    
+                    if (response.success) {
+                        Toast.makeText(
+                            this@MainMenuActivity,
+                            "Vision AI Started!",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        
+                        // Open VisionActivity
+                        val intent = Intent(this@MainMenuActivity, VisionActivity::class.java)
+                        intent.putExtra("playerName", name)
+                        intent.putExtra("roomId", response.gameId)
+                        startActivity(intent)
+                    } else {
+                        Toast.makeText(
+                            this@MainMenuActivity,
+                            "Failed to start: ${response.message}",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    Toast.makeText(
+                        this@MainMenuActivity,
+                        "Error: ${e.message}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
         }
     }
 }
