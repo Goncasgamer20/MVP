@@ -18,7 +18,7 @@ from qrcode_generator import generate_qr_code
 app = FastAPI(title="CV Middleware", version="0.1")
 
 backend = BackendClient(base_url="http://localhost:8002")
-frontend = FrontendClient(base_url="http://localhost:8000")
+frontend = FrontendClient(base_url="http://localhost:8003")
 
 latest_state: dict = {}
 
