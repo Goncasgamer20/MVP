@@ -10,6 +10,7 @@ import subprocess
 
 from models import CardDetection, ScanEvent
 from backend_client import BackendClient
+from frontend_client import FrontendClient
 from qrcode_generator import generate_qr_code
 
 # ---------- App ----------
@@ -17,6 +18,9 @@ from qrcode_generator import generate_qr_code
 app = FastAPI(title="CV Middleware", version="0.1")
 
 backend = BackendClient(base_url="http://localhost:8002")
+frontend = FrontendClient(base_url="http://localhost:8000")
+
+latest_state: dict = {}
 
 # Service URLs
 CV_SERVICE_URL = "http://localhost:8001"
@@ -78,6 +82,22 @@ class RoundEndData(BaseModel):
 
 
 # ---------- Routes ----------
+
+@app.post("/game/state")
+def receive_state(state: dict):
+    global latest_state
+    latest_state = state
+    def push():
+        try:
+            frontend.send_state(latest_state)
+        except Exception as e:
+            print(f"[Middleware] Failed to push state to frontend: {e}")
+    threading.Thread(target=push, daemon=True).start()
+    return {"ok": True}
+
+@app.get("/game/state")
+def get_state():
+    return latest_state
 
 @app.post("/game/round_end")
 async def round_end(data: RoundEndData):
