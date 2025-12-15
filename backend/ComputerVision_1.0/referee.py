@@ -108,6 +108,7 @@ class Referee:
         self.team1_points = 0
         self.team2_points = 0
         self.rounds_played = 0
+        self.card_queue.clear()
         if self.current_player == 4:
             self.current_player = 0
         else:
