@@ -76,27 +76,29 @@ class Referee:
                 round_suit = card_suit
                 round_suit_index = SUITS.index(round_suit)
             else:
-                if card_suit == round_suit:
-                    if not self.players[player][round_suit_index]:
-                        print("[RENUNCIA] AN ILLEGAL PLAY HAS BEEN MADE!!")
-                        if this_player % 2 != 0:
-                            self.team1_victories += 4
-                        else:
-                            self.team2_victories += 4
-                        self.reset_players()
-                        return False
-
-                    trump_index = SUITS.index(self.trump_suit)
-                    if self.players[player][trump_index] and card_suit != self.trump_suit:
-                        print("[RENUNCIA] AN ILLEGAL PLAY HAS BEEN MADE!!")
-                        if this_player % 2 != 0:
-                            self.team1_victories += 4
-                        else:
-                            self.team2_victories += 4
-                        self.reset_players()
-                        return False
-                else:
+                if not self.players[player][card_suit_index]:
+                    print("[RENUNCIA] AN ILLEGAL PLAY HAS BEEN MADE!!")
+                    if this_player % 2 != 0:
+                        self.team1_victories += 4
+                    else:
+                        self.team2_victories += 4
+                    self.reset_players()
+                    return False
+                if card_suit != round_suit:
                     self.players[player][round_suit_index] = False
+                    if (self.first_player + 3) % 4 == 0:
+                        last = 4
+                    else:
+                        last = (self.first_player + 3) % 4
+
+                    if not self.trump_was_played and card_suit == self.trump_suit and this_player==last:
+                        print("[RENUNCIA] AN ILLEGAL PLAY HAS BEEN MADE!!")
+                        if this_player % 2 != 0:
+                            self.team1_victories += 4
+                        else:
+                            self.team2_victories += 4
+                        self.reset_players()
+                        return False
 
         winner = self.determine_round_winner(round_suit)
         self.get_round_sum(winner)

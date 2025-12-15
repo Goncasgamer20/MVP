@@ -66,6 +66,7 @@ def new_round():
 
 @app.post("/card")
 def receive_card(card: CardDTO):
+    global current_hand
     print(f"[DEBUG] Received card: {card.rank} {card.suit}")
     try:
         rank_index = CardMapper.RANKS.index(card.rank)
