@@ -9,14 +9,12 @@ import threading
 
 from models import CardDetection, ScanEvent
 from backend_client import BackendClient
-from frontend_client import FrontendClient
 
 # ---------- App ----------
 
 app = FastAPI(title="CV Middleware", version="0.1")
 
 backend = BackendClient(base_url="http://localhost:8002")
-frontend = FrontendClient(base_url="http://localhost:8003")
 
 latest_state: dict = {}
 
@@ -24,11 +22,18 @@ latest_state: dict = {}
 CV_SERVICE_URL = "http://localhost:8001"
 CV_SERVICE_WS_URL = "ws://localhost:8001"
 GAME_SERVICE_URL = "http://localhost:8002"
-FRONTEND_URL = "http://localhost:8003"
 
 # Active WebSocket connections
 active_connections: dict[str, WebSocket] = {}
 cv_connections: dict[str, websockets.WebSocketClientProtocol] = {}
+
+# Suit name to symbol mapping for Game Service
+SUIT_SYMBOLS = {
+    "Clubs": "♣",
+    "Diamonds": "♦",
+    "Hearts": "♥",
+    "Spades": "♠"
+}
 
 
 # ---------- API DTOs ----------
@@ -57,6 +62,15 @@ class StartGameResponse(BaseModel):
     gameId: str
 
 
+class RoundEndData(BaseModel):
+    round_number: int
+    winner_team: int
+    winner_points: int
+    team1_points: int
+    team2_points: int
+    game_ended: bool
+
+
 # ---------- Routes ----------
 
 @app.post("/game/state")
@@ -74,6 +88,56 @@ def receive_state(state: dict):
 @app.get("/game/state")
 def get_state():
     return latest_state
+
+@app.post("/game/round_end")
+async def round_end(data: RoundEndData):
+    """
+    Recebe notificação de fim de ronda do game_service.
+    Envia para o frontend via WebSocket.
+    """
+    print(f"[MIDDLEWARE] Ronda {data.round_number} acabou! Equipa {data.winner_team} ganhou com {data.winner_points} pontos")
+    
+    # Enviar para todos os clientes conectados
+    for game_id, ws in active_connections.items():
+        try:
+            message = {
+                "type": "round_end",
+                "round_number": data.round_number,
+                "winner_team": data.winner_team,
+                "winner_points": data.winner_points,
+                "team1_points": data.team1_points,
+                "team2_points": data.team2_points,
+                "game_ended": data.game_ended
+            }
+            await ws.send_text(json.dumps(message))
+            print(f"[MIDDLEWARE] Round end notification sent to game {game_id}")
+        except Exception as e:
+            print(f"[MIDDLEWARE] Failed to send round end to {game_id}: {e}")
+    
+    return {"success": True}
+
+@app.post("/game/new_round/{game_id}")
+async def new_round(game_id: str):
+    """
+    Inicia uma nova ronda: reset do CV e notifica game_service.
+    """
+    try:
+        # 1. Reset CV service
+        reset_message = {"action": "reset_cards"}
+        if game_id in cv_connections:
+            cv_ws = cv_connections[game_id]
+            await cv_ws.send(json.dumps(reset_message))
+            print(f"[MIDDLEWARE] CV reset command sent for game {game_id}")
+        
+        # 2. Notificar game service para iniciar nova ronda
+        response = requests.post(f"{GAME_SERVICE_URL}/new_round", timeout=5)
+        if response.status_code == 200:
+            return {"success": True, "message": "Nova ronda iniciada"}
+        else:
+            return {"success": False, "message": "Erro ao iniciar nova ronda"}
+    except Exception as e:
+        print(f"[MIDDLEWARE] Error starting new round: {e}")
+        return {"success": False, "message": str(e)}
 
 @app.post("/game/start")
 async def start_game(request: StartGameRequest):
@@ -109,6 +173,26 @@ async def start_game(request: StartGameRequest):
         )
 
 
+@app.post("/game/ready/{game_id}")
+async def game_ready(game_id: str):
+    """
+    Called when player is ready to start playing (after removing trump card).
+    Resets CV card history.
+    """
+    if game_id in cv_connections:
+        cv_ws = cv_connections[game_id]
+        try:
+            reset_command = json.dumps({"action": "reset_cards"})
+            await cv_ws.send(reset_command)
+            print(f"[Middleware] 🎮 Game started for {game_id} - CV history reset")
+            return {"success": True, "message": "Game started, ready for cards"}
+        except Exception as e:
+            print(f"[Middleware] Error resetting CV: {e}")
+            return {"success": False, "message": str(e)}
+    else:
+        return {"success": False, "message": "Game not found"}
+
+
 @app.websocket("/ws/camera/{game_id}")
 async def websocket_camera(websocket: WebSocket, game_id: str):
     """
@@ -138,11 +222,14 @@ async def websocket_camera(websocket: WebSocket, game_id: str):
                         
                         # Send to Game Service (Referee)
                         try:
+                            # Convert suit name to symbol for Game Service
+                            suit_symbol = SUIT_SYMBOLS.get(detection["suit"], detection["suit"])
+                            
                             game_response = requests.post(
                                 f"{GAME_SERVICE_URL}/card",
                                 json={
                                     "rank": detection["rank"],
-                                    "suit": detection["suit"],
+                                    "suit": suit_symbol,  # Use symbol instead of name
                                     "confidence": detection.get("confidence", 1.0)
                                 },
                                 timeout=2
@@ -150,6 +237,10 @@ async def websocket_camera(websocket: WebSocket, game_id: str):
                             if game_response.status_code == 200:
                                 game_result = game_response.json()
                                 print(f"[Middleware] ✓ Game Service response: {game_result}")
+                                
+                                # Check if trump was just set
+                                if game_result.get("message") == "Trump card set":
+                                    print(f"[Middleware] 🃏 Trump set! Waiting for player to start game...")
                                 
                                 # Forward both CV detection and game state to mobile
                                 combined_data = {

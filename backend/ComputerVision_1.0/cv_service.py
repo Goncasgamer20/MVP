@@ -7,6 +7,7 @@ import base64
 from io import BytesIO
 from PIL import Image
 import asyncio
+import json
 
 from opencv import CardDetector
 from yolo import CardClassifier
@@ -59,10 +60,10 @@ def parse_label(label: str):
     rank = label[:-1]
     suit_char = label[-1].lower()
     suit_map = {
-        "c": "♣",
-        "d": "♦",
-        "h": "♥",
-        "s": "♠"
+        "c": "Clubs",
+        "d": "Diamonds",
+        "h": "Hearts",
+        "s": "Spades"
     }
     suit = suit_map.get(suit_char, "Unknown")
     return rank, suit
@@ -165,8 +166,28 @@ async def cv_stream(websocket: WebSocket, game_id: str):
     
     try:
         while True:
-            # Receive base64 frame from websocket
-            frame_base64 = await websocket.receive_text()
+            # Receive message from websocket
+            message = await websocket.receive_text()
+            
+            # Check if it's a command (JSON) or frame data (base64)
+            if message.startswith("{"):
+                # It's a command
+                try:
+                    command = json.loads(message)
+                    if command.get("action") == "reset_cards":
+                        print(f"[CV Service] 🔄 Received reset command - clearing card history")
+                        sent_labels.clear()
+                        last_labels.clear()
+                        await websocket.send_json({
+                            "success": True,
+                            "message": "cards_reset"
+                        })
+                        continue
+                except json.JSONDecodeError:
+                    pass  # Not a valid JSON, treat as frame
+            
+            # It's a base64 frame
+            frame_base64 = message
             frame_count += 1
             
             # Convert base64 to image
@@ -208,7 +229,8 @@ async def cv_stream(websocket: WebSocket, game_id: str):
             
             # Log progress every 30 frames
             if frame_count % 30 == 0:
-                print(f"[CV Service] Processed {frame_count} frames for game {game_id}")
+                cards_sent = len(sent_labels)
+                print(f"[CV Service] Processed {frame_count} frames | Cards sent: {cards_sent}")
                 
     except WebSocketDisconnect:
         print(f"[CV Service] WebSocket disconnected for game: {game_id}")

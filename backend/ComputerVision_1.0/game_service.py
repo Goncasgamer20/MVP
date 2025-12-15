@@ -10,6 +10,12 @@ app = FastAPI(title="Card Game Backend")
 ref = Referee()
 
 MIDDLEWARE_URL = "http://localhost:8000/game/state"
+MIDDLEWARE_ROUND_END_URL = "http://localhost:8000/game/round_end"
+
+# Game constants
+MAX_ROUNDS = 4  # 4 rondas por jogo
+MAX_RODADAS = 10  # 10 rodadas por ronda
+current_round = 1  # Ronda atual (1-4)
 
 class CardDTO(BaseModel):
     rank: str
@@ -36,9 +42,26 @@ def push_state(ref):
 
 @app.post("/reset")
 def reset_game():
-    global ref
+    global ref, current_round
     ref = Referee()
+    current_round = 1
     return {"success": True, "message": "Game reset"}
+
+@app.post("/new_round")
+def new_round():
+    """Inicia uma nova ronda (reset do referee mas mantém victories)"""
+    global ref, current_round
+    team1_vict = ref.team1_victories
+    team2_vict = ref.team2_victories
+    ref = Referee()
+    ref.team1_victories = team1_vict
+    ref.team2_victories = team2_vict
+    current_round += 1
+    return {
+        "success": True, 
+        "message": f"Nova ronda {current_round} iniciada",
+        "round": current_round
+    }
 
 @app.post("/card")
 def receive_card(card: CardDTO):
@@ -68,17 +91,68 @@ def receive_card(card: CardDTO):
         print("[DEBUG] Enough cards for a round, playing round...")
         round_ok = ref.play_round()
         print(f"[REFEREE] Round played. Team 1 points: {ref.team1_points}, Team 2 points: {ref.team2_points}")
+        
+        # Verificar se a ronda acabou (10 rodadas ou rendição)
+        round_ended = False
+        winner_team = None
+        winner_points = 0
+        
+        if not round_ok:
+            # Rendição - a ronda acaba imediatamente
+            round_ended = True
+            if ref.team1_victories > ref.team2_victories:
+                winner_team = 1
+                winner_points = ref.team1_victories
+            else:
+                winner_team = 2
+                winner_points = ref.team2_victories
+            print(f"[RONDA] Acabou por rendição! Equipa {winner_team} ganhou com {winner_points} pontos")
+        elif ref.rounds_played >= MAX_RODADAS:
+            # 10 rodadas completadas
+            round_ended = True
+            if ref.team1_points > ref.team2_points:
+                winner_team = 1
+                winner_points = ref.team1_points
+            else:
+                winner_team = 2
+                winner_points = ref.team2_points
+            print(f"[RONDA] Acabou após 10 rodadas! Equipa {winner_team} ganhou com {winner_points} pontos")
+        
+        if round_ended:
+            # Notificar middleware sobre fim de ronda
+            try:
+                round_data = {
+                    "round_number": current_round,
+                    "winner_team": winner_team,
+                    "winner_points": winner_points,
+                    "team1_points": ref.team1_points,
+                    "team2_points": ref.team2_points,
+                    "game_ended": current_round >= MAX_ROUNDS
+                }
+                requests.post(MIDDLEWARE_ROUND_END_URL, json=round_data, timeout=1)
+                print(f"[SYNC] Round end notification sent to middleware")
+            except Exception as e:
+                print(f"[WARN] Failed to notify middleware: {e}")
+        
         push_state(ref)
+        
         if not round_ok:
             return {
                 "success": False,
-                "message": "Round failed (renuncia or invalid play)"
+                "message": "Round failed (renuncia or invalid play)",
+                "round_ended": round_ended,
+                "winner_team": winner_team,
+                "winner_points": winner_points
             }
         return {
             "success": True,
             "message": "Round played",
             "team1_points": ref.team1_points,
-            "team2_points": ref.team2_points
+            "team2_points": ref.team2_points,
+            "rounds_played": ref.rounds_played,
+            "round_ended": round_ended,
+            "winner_team": winner_team,
+            "winner_points": winner_points
         }
 
     return {

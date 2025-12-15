@@ -15,4 +15,10 @@ cd middleware
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-### Passo 3: Run android-studio
+### Passo 3: Iniciar o Game Engine (Terminal 3)
+```bash
+cd backend/ComputerVision_1.0
+uvicorn game_service:app --host 0.0.0.0 --port 8002 --reload
+```
+
+### Passo 4: Run android-studio

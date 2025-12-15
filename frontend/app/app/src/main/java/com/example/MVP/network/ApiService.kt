@@ -24,6 +24,12 @@ interface ApiService {
     
     @POST("game/start")
     suspend fun startGame(@Body body: StartGameRequest): StartGameResponse
+    
+    @POST("game/ready/{gameId}")
+    suspend fun startGameReady(@Path("gameId") gameId: String): StartGameResponse
+    
+    @POST("game/new_round/{gameId}")
+    suspend fun startNewRound(@Path("gameId") gameId: String): StartGameResponse
 
     //get de arbitragem
 }

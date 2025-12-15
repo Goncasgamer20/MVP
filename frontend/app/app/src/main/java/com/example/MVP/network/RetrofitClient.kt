@@ -2,14 +2,15 @@ package com.example.MVP.network
 
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
+import com.example.MVP.network.ApiService
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 object RetrofitClient {
     // For Android Emulator: use 10.0.2.2 to access localhost on host machine
-    // For Real Device: replace with your computer's IP address (e.g., "http://192.168.1.100:8000/")
-    private const val BASE_URL = "http://192.168.176.47:8000/"
+    // For Real Device: replace with your computer's IP address (e.g., "http://10.196.16.35:8000/")
+    private const val BASE_URL = "http://10.196.16.35:8000/"
 
     private val logger = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY

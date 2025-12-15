@@ -24,6 +24,8 @@ class Referee:
         self.team2_points = 0
         self.team1_victories = 0
         self.team2_victories = 0
+        self.first_player=0
+
     
     def state(self):
         return {
@@ -62,8 +64,17 @@ class Referee:
 
             if card_number == self.trump:
                 self.trump_was_played = True
+                print("[DEBUG] Trump was played this round!")
 
             card_suit = CardMapper.get_card_suit(card_number)
+            if i == 0:
+                round_suit = card_suit
+                round_suit_index = SUITS.index(round_suit)
+            else:
+                if card_suit != round_suit:
+                    print(f"[DEBUG] Player {self.current_player + i} did not follow suit ({card_suit} != {round_suit})")
+                    self.players[player][round_suit_index] = False
+
             this_player = self.current_player + i
             this_player = ((this_player - 1) % 4) + 1
             player = f"player{this_player}"
@@ -78,13 +89,20 @@ class Referee:
                     self.team2_victories += 4
                 self.reset_players()
                 return False
+            if round_suit:
+                if (self.first_player+3)%4 == 0:
+                    aux = 4
+                else:
+                    aux = (self.first_player+3)%4
+                if this_player == aux and not self.trump_was_played and round_suit == self.trump_suit:
+                    print("[RENUNCIA] AN ILLEGAL PLAY HAS BEEN MADE!!")
+                    if this_player % 2 != 0:
+                        self.team1_victories += 4
+                    else:
+                        self.team2_victories += 4
+                    self.reset_players()
+                    return False
 
-            if i == 0:
-                round_suit = card_suit
-                round_suit_index = SUITS.index(round_suit)
-            else:
-                if card_suit != round_suit:
-                    self.players[player][round_suit_index] = False
 
         winner = self.determine_round_winner(round_suit)
         self.get_round_sum(winner)
@@ -105,14 +123,13 @@ class Referee:
         self.trump=None
         self.trump_suit=None
         self.trump_set=False
-        self.team1_points = 0
-        self.team2_points = 0
         self.rounds_played = 0
         self.card_queue.clear()
-        if self.current_player == 4:
-            self.current_player = 0
+        if self.first_player == 4:
+            self.first_player = 0
         else:
-            self.current_player += 1
+            self.first_player += 1
+        self.current_player = self.first_player +1
         print("[DEBUG] PLAYERS RESET")
 
     def reset_round(self):

@@ -96,11 +96,25 @@ class MainMenuActivity : AppCompatActivity() {
                             Toast.LENGTH_LONG
                         ).show()
                     }
+                } catch (e: retrofit2.HttpException) {
+                    e.printStackTrace()
+                    Toast.makeText(
+                        this@MainMenuActivity,
+                        "Erro HTTP: ${e.code()} - ${e.message()}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                } catch (e: java.net.ConnectException) {
+                    e.printStackTrace()
+                    Toast.makeText(
+                        this@MainMenuActivity,
+                        "Não foi possível conectar ao servidor. Verifique se o middleware está a correr.",
+                        Toast.LENGTH_LONG
+                    ).show()
                 } catch (e: Exception) {
                     e.printStackTrace()
                     Toast.makeText(
                         this@MainMenuActivity,
-                        "Error: ${e.message}",
+                        "Erro: ${e.javaClass.simpleName} - ${e.message}",
                         Toast.LENGTH_LONG
                     ).show()
                 }
