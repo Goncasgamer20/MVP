@@ -16,8 +16,6 @@ app = FastAPI(title="CV Middleware", version="0.1")
 
 backend = BackendClient(base_url="http://localhost:8002")
 
-latest_state: dict = {}
-
 # Service URLs
 CV_SERVICE_URL = "http://localhost:8001"
 CV_SERVICE_WS_URL = "ws://localhost:8001"
@@ -72,22 +70,6 @@ class RoundEndData(BaseModel):
 
 
 # ---------- Routes ----------
-
-@app.post("/game/state")
-def receive_state(state: dict):
-    global latest_state
-    latest_state = state
-    def push():
-        try:
-            frontend.send_state(latest_state)
-        except Exception as e:
-            print(f"[Middleware] Failed to push state to frontend: {e}")
-    threading.Thread(target=push, daemon=True).start()
-    return {"ok": True}
-
-@app.get("/game/state")
-def get_state():
-    return latest_state
 
 @app.post("/game/round_end")
 async def round_end(data: RoundEndData):
