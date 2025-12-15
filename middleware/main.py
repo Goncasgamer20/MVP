@@ -5,20 +5,26 @@ import asyncio
 import requests
 import websockets
 import json
+import threading
 
 from models import CardDetection, ScanEvent
 from backend_client import BackendClient
+from frontend_client import FrontendClient
 
 # ---------- App ----------
 
 app = FastAPI(title="CV Middleware", version="0.1")
 
-backend = BackendClient(base_url="http://localhost:8080")
+backend = BackendClient(base_url="http://localhost:8002")
+frontend = FrontendClient(base_url="http://localhost:8003")
+
+latest_state: dict = {}
 
 # Service URLs
 CV_SERVICE_URL = "http://localhost:8001"
 CV_SERVICE_WS_URL = "ws://localhost:8001"
-GAME_SERVICE_URL = "http://localhost:8080"
+GAME_SERVICE_URL = "http://localhost:8002"
+FRONTEND_URL = "http://localhost:8003"
 
 # Active WebSocket connections
 active_connections: dict[str, WebSocket] = {}
@@ -53,6 +59,22 @@ class StartGameResponse(BaseModel):
 
 # ---------- Routes ----------
 
+@app.post("/game/state")
+def receive_state(state: dict):
+    global latest_state
+    latest_state = state
+    def push():
+        try:
+            frontend.send_state(latest_state)
+        except Exception as e:
+            print(f"[Middleware] Failed to push state to frontend: {e}")
+    threading.Thread(target=push, daemon=True).start()
+    return {"ok": True}
+
+@app.get("/game/state")
+def get_state():
+    return latest_state
+
 @app.post("/game/start")
 async def start_game(request: StartGameRequest):
     """
@@ -60,7 +82,6 @@ async def start_game(request: StartGameRequest):
     Initializes the CV service.
     """
     try:
-        # Call CV service to start detection
         response = requests.post(
             f"{CV_SERVICE_URL}/cv/start",
             json={"game_id": request.roomId or "default"},

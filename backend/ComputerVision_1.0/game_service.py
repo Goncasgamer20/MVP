@@ -1,11 +1,15 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
+import requests
 from typing import Optional
 from card_mapper import CardMapper
 from referee import Referee
+import threading
 
 app = FastAPI(title="Card Game Backend")
 ref = Referee()
+
+MIDDLEWARE_URL = "http://localhost:8000/game/state"
 
 class CardDTO(BaseModel):
     rank: str
@@ -15,6 +19,20 @@ class CardDTO(BaseModel):
 @app.get("/state")
 def get_state():
     return ref.state()
+
+def send_state_to_middleware(ref):
+    try:
+        requests.post(MIDDLEWARE_URL, json=ref.state(), timeout=0.2)
+        print("[SYNC] State pushed to middleware")
+    except requests.exceptions.RequestException as e:
+        print(f"[WARN] State sync failed: {e}")
+
+def push_state(ref):
+    threading.Thread(
+        target=send_state_to_middleware,
+        args=(ref,),
+        daemon=True
+    ).start()
 
 @app.post("/reset")
 def reset_game():
@@ -40,6 +58,7 @@ def receive_card(card: CardDTO):
         print("[DEBUG] Setting trump...")
         ref.set_trump()
         print(f"[DEBUG] Trump now: {CardMapper.get_card(ref.trump)} (suit: {ref.trump_suit})")
+        push_state(ref)
         return {
             "success": True,
             "message": "Trump card set"
@@ -49,6 +68,7 @@ def receive_card(card: CardDTO):
         print("[DEBUG] Enough cards for a round, playing round...")
         round_ok = ref.play_round()
         print(f"[REFEREE] Round played. Team 1 points: {ref.team1_points}, Team 2 points: {ref.team2_points}")
+        push_state(ref)
         if not round_ok:
             return {
                 "success": False,

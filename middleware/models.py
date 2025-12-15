@@ -4,9 +4,9 @@ from typing import Optional
 
 @dataclass
 class CardDetection:
-    rank: str            # "A", "2", ..., "10", "J", "Q", "K"
-    suit: str            # "Hearts", "Spades", "Diamonds", "Clubs"
-    confidence: float    # 0.0 - 1.0
+    rank: str
+    suit: str
+    confidence: float
 
     def to_json(self) -> dict:
         return asdict(self)
@@ -15,7 +15,7 @@ class CardDetection:
 @dataclass
 class ScanEvent:
     detection: Optional[CardDetection]
-    source: str          # "android"
+    source: str
     success: bool
     message: str
 

@@ -36,7 +36,8 @@ class Referee:
             "team1_points": self.team1_points,
             "team2_points": self.team2_points,
             "team1_victories": self.team1_victories,
-            "team2_victories": self.team2_victories
+            "team2_victories": self.team2_victories,
+            "new_game": self.rounds_played == 0
         }
 
     def receive_card(self):
@@ -55,8 +56,6 @@ class Referee:
 
     def play_round(self):
         self.rounds_played += 1
-        if len(self.card_queue) < 4:
-            return False
         for i in range(4):
             card_number = self.receive_card()
             self.round_vector.append(card_number)
@@ -73,7 +72,7 @@ class Referee:
 
             if not self.players[player][card_suit_index]:
                 print("[RENUNCIA] AN ILLEGAL PLAY HAS BEEN MADE!!")
-                if this_player % 2 == 0:
+                if this_player % 2 != 0:
                     self.team1_victories += 4
                 else:
                     self.team2_victories += 4
@@ -109,7 +108,10 @@ class Referee:
         self.team1_points = 0
         self.team2_points = 0
         self.rounds_played = 0
-        self.current_player += 1
+        if self.current_player == 4:
+            self.current_player = 0
+        else:
+            self.current_player += 1
         print("[DEBUG] PLAYERS RESET")
 
     def reset_round(self):

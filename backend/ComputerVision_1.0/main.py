@@ -58,7 +58,7 @@ def main():
         index = int(input("Escolha o índice da câmera: "))
         cam = Camera(method='usb', index=index)
     elif method == 'ip':
-        url = input("Digite a URL do stream IP (ex: https://192.168.1.67:8080): ").strip()
+        url = input("Digite a URL do stream IP (ex: https://192.168.1.67:8002): ").strip()
         # Adicionar /video ao URL se não estiver presente
         if not url.endswith('/video'):
             url = url.rstrip('/') + '/video'
