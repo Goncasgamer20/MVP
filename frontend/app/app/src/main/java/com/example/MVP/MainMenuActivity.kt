@@ -23,6 +23,7 @@ class MainMenuActivity : AppCompatActivity() {
         val inputRoom = findViewById<EditText>(R.id.inputRoom)
         val btnJoin = findViewById<Button>(R.id.btnJoin)
         val btnVision = findViewById<Button>(R.id.btnVision)
+        val btnQrCode = findViewById<Button>(R.id.btnQrCode)
 
         btnJoin.setOnClickListener {
             val name = inputName.text.toString().ifBlank { "Player${(1000..9999).random()}" }
@@ -119,6 +120,10 @@ class MainMenuActivity : AppCompatActivity() {
                     ).show()
                 }
             }
+        }
+        btnQrCode.setOnClickListener {
+            val intent = Intent(this@MainMenuActivity, QrCodeReader::class.java)
+            startActivity(intent)
         }
     }
 }

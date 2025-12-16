@@ -25,6 +25,11 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".QrCodeReader"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+
 
         <activity
             android:name="com.example.MVP.RoomActivity"
